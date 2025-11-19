@@ -76,7 +76,7 @@ def add_indicators(df):
     df["Return_next"] = df["Return"].shift(-1)
     df["Close_next"] = df["Close"].shift(-1)
 
-    df = df.dropna().reset_index(drop=True)
+   # df = df.dropna().reset_index(drop=True)
     return df
 
 
