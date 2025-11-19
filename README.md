@@ -157,7 +157,7 @@ Le pipeline permet de créer facilement une première stratégie :
 * `RSI_14 < 30`
 * `MACD_Diff > 0`
 
-### 📤 **Signal SELL** si :
+###  **Signal SELL** si :
 
 * `Close > Bollinger_Upper`
 * `RSI_14 > 70`
@@ -218,13 +218,13 @@ data/ALL_YFINANCE_features.csv
 
 ---
 
-# 🔁 GitHub Actions
+# GitHub Actions
 
 Le pipeline est exécuté automatiquement chaque soir à **20h** pour mettre les prix à jour.
 
 ---
 
-# 📂 Architecture du Projet
+#  Architecture du Projet
 
 ```
 root/
