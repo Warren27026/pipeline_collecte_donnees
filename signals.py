@@ -4,19 +4,26 @@ import pandas as pd
 
 DATA_FOLDER = "data"
 
-def add_signals(df):
-    """Ajoute une colonne 'signal' (BUY / SELL / HOLD) à partir des indicateurs."""
+def add_signals(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Ajoute une colonne 'signal' (BUY / SELL / HOLD) à partir des indicateurs :
+    - Close
+    - Bollinger_Lower
+    - Bollinger_Upper
+    - RSI_14
+    - MACD_Diff
+    """
     df = df.copy()
-    df["signal"] = "HOLD"
+    df["signal"] = "HOLD"  # par défaut
 
-    # Règle BUY
+    # Condition d'achat (BUY)
     buy_cond = (
         (df["Close"] < df["Bollinger_Lower"]) &
         (df["RSI_14"] < 30) &
         (df["MACD_Diff"] > 0)
     )
 
-    # Règle SELL
+    # Condition de vente (SELL)
     sell_cond = (
         (df["Close"] > df["Bollinger_Upper"]) &
         (df["RSI_14"] > 70) &
@@ -31,8 +38,8 @@ def add_signals(df):
 
 def get_last_signal_for_symbol(symbol: str):
     """
-    Lit le fichier {symbol}_features.csv, calcule le signal pour chaque ligne,
-    et renvoie le signal du DERNIER JOUR disponible.
+    Lis data/{symbol}_features.csv,
+    calcule les signaux, et renvoie le signal du DERNIER jour.
     """
     path = os.path.join(DATA_FOLDER, f"{symbol}_features.csv")
     if not os.path.exists(path):
@@ -40,33 +47,34 @@ def get_last_signal_for_symbol(symbol: str):
 
     df = pd.read_csv(path)
 
-    # On ajoute les signaux
+    # Ajout des signaux
     df = add_signals(df)
 
-    # On prend la dernière ligne (la plus récente)
-    last_row = df.iloc[-1]
+    # Dernière ligne (jour le plus récent)
+    last = df.iloc[-1]
 
-    date = last_row.get("date", "N/A")
-    price = float(last_row["Close"])
-    signal = last_row["signal"]
+    date = last.get("date", "N/A")
+    close = float(last["Close"])
+    signal = last["signal"]
 
     return {
         "symbol": symbol,
         "date": date,
-        "close": price,
-        "signal": signal
+        "close": close,
+        "signal": signal,
     }
 
 
 def main():
     symbols = ["AAPL", "TSLA", "MSFT", "BTC-USD", "GOOGL"]
+
     print("=== SIGNAUX DU JOUR ===")
     for s in symbols:
         try:
             info = get_last_signal_for_symbol(s)
             print(f"{info['date']} | {info['symbol']} | Close={info['close']:.2f} | Signal={info['signal']}")
         except Exception as e:
-            print(f"Erreur pour {s}: {e}")
+            print(f"[ERREUR] {s} : {e}")
 
 
 if __name__ == "__main__":
