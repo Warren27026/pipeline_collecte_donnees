@@ -11,6 +11,7 @@ import yfinance as yf
 from tiingo import TiingoClient
 import ta   # <--- LIBRAIRIE D'INDICATEURS
 # pip install ta
+from signals import main as signals_main
 
 # ====================== CONFIG ======================
 
@@ -135,7 +136,11 @@ def main():
     print("DÉBUT PIPELINE -", datetime.now().strftime("%Y-%m-%d %H:%M"))
     collect_yfinance()
     collect_tiingo()
-    print("TERMINÉ – PRIX + INDICATEURS TECHNIQUES GÉNÉRÉS 🚀")
+    print("Données collectées et indicateurs calculés.")
+
+    print("\nCalcul des signaux BUY/SELL...")
+    signals_main()
+    print("TERMINÉ – PRIX + SIGNAUX GÉNÉRÉS")
 
 if __name__ == "__main__":
     main()
