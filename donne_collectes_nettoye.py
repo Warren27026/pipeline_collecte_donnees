@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-PIPELINE PRIX → CSV + INDICATEURS TECHNIQUES (Bollinger, RSI, MACD…)
-VERSION AMÉLIORÉE
+PIPELINE PRIX avec CSV + INDICATEURS TECHNIQUES (Bollinger, RSI, MACD…)
 """
 
 import os
@@ -46,7 +45,7 @@ def clean_data(df):
     return df
 
 
-# ====================== ADD TECHNICAL INDICATORS ======================
+# ====================== ADD TECHNIC INDICATORS ======================
 
 def add_indicators(df):
     df = df.copy()
