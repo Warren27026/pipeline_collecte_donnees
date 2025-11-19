@@ -1,6 +1,7 @@
 # signals.py
 import os
 import pandas as pd
+from datetime import datetime
 
 DATA_FOLDER = "data"
 
@@ -68,13 +69,27 @@ def get_last_signal_for_symbol(symbol: str):
 def main():
     symbols = ["AAPL", "TSLA", "MSFT", "BTC-USD", "GOOGL"]
 
+    today = datetime.now().strftime("%Y-%m-%d")
+    output_path = os.path.join(DATA_FOLDER, f"signals_{today}.csv")
+
+    results = []
+
     print("=== SIGNAUX DU JOUR ===")
     for s in symbols:
         try:
             info = get_last_signal_for_symbol(s)
+            results.append(info)
+
             print(f"{info['date']} | {info['symbol']} | Close={info['close']:.2f} | Signal={info['signal']}")
+
         except Exception as e:
             print(f"[ERREUR] {s} : {e}")
+
+    # Sauvegarde CSV
+    df_results = pd.DataFrame(results)
+    df_results.to_csv(output_path, index=False)
+
+    print(f"\nFichier sauvegardé : {output_path}")
 
 
 if __name__ == "__main__":
