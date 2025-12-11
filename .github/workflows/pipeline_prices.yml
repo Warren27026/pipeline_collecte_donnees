@@ -21,7 +21,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install yfinance tiingo pandas numpy ta
+          pip install yfinance tiingo pandas numpy ta matplotlib
 
       - name: Run pipeline script (collecte + nettoyage + signaux)
         env:
