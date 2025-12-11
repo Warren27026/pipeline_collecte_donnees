@@ -5,46 +5,58 @@ import pandas as pd
 
 DATA_FOLDER = "data"
 
-# 5 entreprises de ton pipeline
+# 5 actifs du pipeline
 SYMBOLS = [
     "AAPL",
     "TSLA",
     "MSFT",
     "GOOGL",
-    "BTC-USD"   # Retire-le si tu veux rester 100% actions
+    "BTC-USD",  # tu peux le retirer si tu veux rester 100% actions
 ]
 
-CAPITAL_INITIAL = 25000.0   # Capital global unique
+CAPITAL_INITIAL = 25000.0  # capital global unique
 
 
-def load_data(symbol):
-    path = os.path.join(DATA_FOLDER, f"{symbol}_features.csv")
-    if not os.path.exists(path):
-        print(f"[WARN] {symbol}_features.csv introuvable -> ignoré")
+def load_symbol_history(symbol: str, history_path: str):
+    """Charge l'historique des signaux pour un symbole à partir de signals_history.csv"""
+    df = pd.read_csv(history_path)
+
+    # On garde uniquement ce symbole
+    df = df[df["symbol"] == symbol].copy()
+    if df.empty:
+        print(f"[WARN] Aucun signal historique pour {symbol}, ignoré.")
         return None
 
-    df = pd.read_csv(path)
-
-    if "signal" not in df.columns:
-        print(f"[WARN] Pas de colonne 'signal' dans {symbol} -> ignoré")
-        return None
-
+    # Date propre
     df["date"] = pd.to_datetime(df["date"])
-    return df
+
+    # On enlève les doublons éventuels (même jour, même symbole)
+    df = df.sort_values("date").drop_duplicates(subset=["symbol", "date"], keep="last")
+
+    # On renomme pour rester cohérent avec le reste du code
+    df = df.rename(columns={
+        "recommendation": "signal",
+        "close": "Close"
+    })
+
+    return df[["date", "Close", "signal"]]
 
 
 def backtest_global():
-    # Charger les données
+    history_path = os.path.join(DATA_FOLDER, "signals_history.csv")
+    if not os.path.exists(history_path):
+        raise FileNotFoundError(f"Fichier introuvable : {history_path} (lance d'abord signals.py plusieurs jours).")
+
     datasets = {}
-    for symbol in SYMBOLS:
-        df = load_data(symbol)
-        if df is not None:
-            datasets[symbol] = df
+    for sym in SYMBOLS:
+        df_sym = load_symbol_history(sym, history_path)
+        if df_sym is not None:
+            datasets[sym] = df_sym
 
-    if len(datasets) == 0:
-        raise ValueError("Aucune donnée disponible pour le backtest global.")
+    if not datasets:
+        raise ValueError("Aucune donnée de signaux disponible pour le backtest global.")
 
-    # Dates communes à toutes les entreprises
+    # Dates communes à tous les symboles retenus
     common_dates = None
     for df in datasets.values():
         if common_dates is None:
@@ -53,25 +65,26 @@ def backtest_global():
             common_dates = common_dates.intersection(set(df["date"]))
 
     common_dates = sorted(list(common_dates))
+    if not common_dates:
+        raise ValueError("Aucune date commune entre les symboles (trop peu d'historique).")
 
     # Portefeuille global
     cash = CAPITAL_INITIAL
-    positions = {sym: 0.0 for sym in SYMBOLS}
+    positions = {sym: 0.0 for sym in datasets.keys()}  # nb d'actions détenues par symbole
     portfolio_values = []
 
     for date in common_dates:
-
-        # SELL en premier
+        # 1) SELL d'abord
         for sym, df in datasets.items():
             row = df[df["date"] == date].iloc[0]
             signal = row["signal"]
-            price = row["Close"]
+            price = float(row["Close"])
 
             if signal == "SELL" and positions[sym] > 0:
                 cash += positions[sym] * price
                 positions[sym] = 0.0
 
-        # BUY ensuite
+        # 2) BUY : on répartit le cash entre tous les symboles en BUY
         buy_symbols = []
         for sym, df in datasets.items():
             row = df[df["date"] == date].iloc[0]
@@ -80,19 +93,18 @@ def backtest_global():
 
         if buy_symbols:
             amount_per_symbol = cash / len(buy_symbols)
-
             for sym in buy_symbols:
                 row = datasets[sym][datasets[sym]["date"] == date].iloc[0]
-                price = row["Close"]
+                price = float(row["Close"])
                 shares = amount_per_symbol / price
                 positions[sym] += shares
                 cash -= shares * price
 
-        # Valeur totale du portefeuille aujourd’hui
+        # 3) Valeur totale du portefeuille à cette date
         total_value = cash
         for sym, df in datasets.items():
             row = df[df["date"] == date].iloc[0]
-            price = row["Close"]
+            price = float(row["Close"])
             total_value += positions[sym] * price
 
         portfolio_values.append({
@@ -110,8 +122,9 @@ def backtest_global():
     print(f"Valeur finale : {final_value:.2f} €")
     print(f"Performance : {perf_pct:.2f} %")
 
-    result_df.to_csv(os.path.join(DATA_FOLDER, "backtest_global.csv"), index=False)
-    print("\nDonnées sauvegardées dans : data/backtest_global.csv")
+    out_path = os.path.join(DATA_FOLDER, "backtest_global.csv")
+    result_df.to_csv(out_path, index=False)
+    print(f"\nDétails sauvegardés dans : {out_path}")
 
     return result_df
 
