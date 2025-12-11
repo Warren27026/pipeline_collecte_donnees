@@ -2,8 +2,7 @@ name: Pipeline prix bourse
 
 on:
   schedule:
-    # Tous les jours de semaine à 08:00 UTC
-    # ≈ 09:00/10:00 en Europe/Paris selon l’heure d’été
+    # Tous les jours à 20:00 UTC (~21h/22h Europe/Paris selon l’heure d’été)
     - cron: "0 20 * * *"
   workflow_dispatch: {}
 
@@ -24,11 +23,15 @@ jobs:
         run: |
           pip install yfinance tiingo pandas numpy ta
 
-      - name: Run pipeline script
+      - name: Run pipeline script (collecte + nettoyage + signaux)
         env:
           TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}
         run: |
           python donne_collectes_nettoye.py
+
+      - name: Run global backtest (25k€ sur 5 entreprises)
+        run: |
+          python backtest_global.py
 
       - name: Commit and push changes
         env:
@@ -39,7 +42,7 @@ jobs:
 
           if [ -n "$(git status --porcelain)" ]; then
             git add data
-            git commit -m "Auto: update prix $(date -u +"%Y-%m-%d %H:%M:%S")"
+            git commit -m "Auto: update prix + backtest $(date -u +"%Y-%m-%d %H:%M:%S")"
             git push
           else
             echo "Aucun changement à committer."
