@@ -1,14 +1,17 @@
 # backtest_global.py
+
 import os
 import pandas as pd
 
 DATA_FOLDER = "data"
 
-# 10 à 15 entreprises
+# 5 entreprises de ton pipeline
 SYMBOLS = [
-    "AAPL", "TSLA", "MSFT", "AMZN", "META",
-    "NVDA", "GOOGL", "NFLX", "IBM", "INTC",
-    "ORCL", "AMD", "PYPL", "CSCO"
+    "AAPL",
+    "TSLA",
+    "MSFT",
+    "GOOGL",
+    "BTC-USD"   # Retire-le si tu veux rester 100% actions
 ]
 
 CAPITAL_INITIAL = 25000.0   # Capital global unique
@@ -17,13 +20,13 @@ CAPITAL_INITIAL = 25000.0   # Capital global unique
 def load_data(symbol):
     path = os.path.join(DATA_FOLDER, f"{symbol}_features.csv")
     if not os.path.exists(path):
-        print(f"[WARN] {symbol}_features.csv introuvable")
+        print(f"[WARN] {symbol}_features.csv introuvable -> ignoré")
         return None
 
     df = pd.read_csv(path)
 
     if "signal" not in df.columns:
-        print(f"[WARN] Pas de colonne 'signal' dans {symbol}")
+        print(f"[WARN] Pas de colonne 'signal' dans {symbol} -> ignoré")
         return None
 
     df["date"] = pd.to_datetime(df["date"])
@@ -31,16 +34,19 @@ def load_data(symbol):
 
 
 def backtest_global():
-    # Charger les données de toutes les entreprises
-    data_dict = {}
+    # Charger les données
+    datasets = {}
     for symbol in SYMBOLS:
         df = load_data(symbol)
         if df is not None:
-            data_dict[symbol] = df
+            datasets[symbol] = df
 
-    # Synchroniser les dates communes
+    if len(datasets) == 0:
+        raise ValueError("Aucune donnée disponible pour le backtest global.")
+
+    # Dates communes à toutes les entreprises
     common_dates = None
-    for df in data_dict.values():
+    for df in datasets.values():
         if common_dates is None:
             common_dates = set(df["date"])
         else:
@@ -50,52 +56,44 @@ def backtest_global():
 
     # Portefeuille global
     cash = CAPITAL_INITIAL
-    positions = {symbol: 0.0 for symbol in SYMBOLS}   # nombre d'actions par entreprise
+    positions = {sym: 0.0 for sym in SYMBOLS}
     portfolio_values = []
 
     for date in common_dates:
-        invested_companies = []
 
-        # Première boucle : SELL et HOLD
-        for symbol, df in data_dict.items():
+        # SELL en premier
+        for sym, df in datasets.items():
             row = df[df["date"] == date].iloc[0]
-            price = row["Close"]
             signal = row["signal"]
+            price = row["Close"]
 
-            # SELL → vendre tout
-            if signal == "SELL" and positions[symbol] > 0:
-                cash += positions[symbol] * price
-                positions[symbol] = 0.0
+            if signal == "SELL" and positions[sym] > 0:
+                cash += positions[sym] * price
+                positions[sym] = 0.0
 
-            # HOLD → rien ne change
-
-        # Deuxième boucle : BUY (après avoir vendu)
-        for symbol, df in data_dict.items():
+        # BUY ensuite
+        buy_symbols = []
+        for sym, df in datasets.items():
             row = df[df["date"] == date].iloc[0]
-            price = row["Close"]
-            signal = row["signal"]
+            if row["signal"] == "BUY":
+                buy_symbols.append(sym)
 
-            if signal == "BUY":
-                invested_companies.append(symbol)
+        if buy_symbols:
+            amount_per_symbol = cash / len(buy_symbols)
 
-        # Répartition équitable du cash entre les BUY
-        if invested_companies:
-            amount_per_company = cash / len(invested_companies)
-
-            for symbol in invested_companies:
-                row = data_dict[symbol][data_dict[symbol]["date"] == date].iloc[0]
+            for sym in buy_symbols:
+                row = datasets[sym][datasets[sym]["date"] == date].iloc[0]
                 price = row["Close"]
-
-                shares = amount_per_company / price
-                positions[symbol] += shares
+                shares = amount_per_symbol / price
+                positions[sym] += shares
                 cash -= shares * price
 
-        # Calcul de la valeur totale du portefeuille aujourd’hui
+        # Valeur totale du portefeuille aujourd’hui
         total_value = cash
-        for symbol, df in data_dict.items():
+        for sym, df in datasets.items():
             row = df[df["date"] == date].iloc[0]
             price = row["Close"]
-            total_value += positions[symbol] * price
+            total_value += positions[sym] * price
 
         portfolio_values.append({
             "date": date,
@@ -103,19 +101,17 @@ def backtest_global():
             "cash": cash
         })
 
-    # Résultat final
     result_df = pd.DataFrame(portfolio_values)
     final_value = result_df.iloc[-1]["total_value"]
     perf_pct = (final_value / CAPITAL_INITIAL - 1) * 100
 
-    print("\n=== RÉSULTATS DU BACKTEST GLOBAL ===")
+    print("\n=== RÉSULTATS BACKTEST GLOBAL ===")
     print(f"Capital initial : {CAPITAL_INITIAL} €")
     print(f"Valeur finale : {final_value:.2f} €")
     print(f"Performance : {perf_pct:.2f} %")
 
-    out_path = os.path.join(DATA_FOLDER, "backtest_global.csv")
-    result_df.to_csv(out_path, index=False)
-    print(f"\nDétails enregistrés dans {out_path}")
+    result_df.to_csv(os.path.join(DATA_FOLDER, "backtest_global.csv"), index=False)
+    print("\nDonnées sauvegardées dans : data/backtest_global.csv")
 
     return result_df
 
