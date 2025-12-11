@@ -11,7 +11,7 @@ SYMBOLS = [
     "TSLA",
     "MSFT",
     "GOOGL",
-    "BTC-USD",  # tu peux le retirer si tu veux rester 100% actions
+    "BTC-USD", 
 ]
 
 CAPITAL_INITIAL = 25000.0  # capital global unique
