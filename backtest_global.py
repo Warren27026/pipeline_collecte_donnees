@@ -2,6 +2,7 @@
 
 import os
 import pandas as pd
+import matplotlib.pyplot as plt  # <-- ajout
 
 DATA_FOLDER = "data"
 
@@ -10,14 +11,13 @@ SYMBOLS = [
     "TSLA",
     "MSFT",
     "GOOGL",
-    "BTC-USD",  # tu peux l'enlever si tu veux seulement les actions
+    "BTC-USD",
 ]
 
-CAPITAL_INITIAL = 25000.0  # capital global unique
+CAPITAL_INITIAL = 25000.0
 
 
 def load_symbol_history(symbol: str, history_path: str):
-    """Charge l'historique des signaux pour un symbole à partir de signals_history.csv"""
     df = pd.read_csv(history_path)
 
     df = df[df["symbol"] == symbol].copy()
@@ -52,7 +52,7 @@ def backtest_global():
     if not datasets:
         raise ValueError("Aucune donnée de signaux disponible pour le backtest global.")
 
-    # ⚠️ AU LIEU D'UNE INTERSECTION STRICTE, ON PREND LA UNION DES DATES
+    # Union des dates
     all_dates = set()
     for df in datasets.values():
         all_dates |= set(df["date"])
@@ -61,14 +61,13 @@ def backtest_global():
     if not all_dates:
         raise ValueError("Aucune date disponible dans l'historique des signaux.")
 
-    # Portefeuille global
     cash = CAPITAL_INITIAL
-    positions = {sym: 0.0 for sym in datasets.keys()}  # nb d'actions
-    last_price = {sym: None for sym in datasets.keys()}  # dernier prix connu
+    positions = {sym: 0.0 for sym in datasets.keys()}
+    last_price = {sym: None for sym in datasets.keys()}
     portfolio_rows = []
 
     for date in all_dates:
-        # 1) SELL d'abord
+        # SELL d'abord
         for sym, df in datasets.items():
             rows = df[df["date"] == date]
             if not rows.empty:
@@ -77,16 +76,14 @@ def backtest_global():
                 last_price[sym] = price
                 signal = row["signal"]
             else:
-                # Pas de nouvelle donnée ce jour-là pour ce symbole
                 signal = "HOLD"
                 price = last_price[sym]
 
-            # Si signal SELL et on a des actions → on vend
             if signal == "SELL" and positions[sym] > 0 and price is not None:
                 cash += positions[sym] * price
                 positions[sym] = 0.0
 
-        # 2) BUY : on répartit le cash entre tous les symboles qui ont BUY ce jour-là
+        # BUY ensuite
         buy_symbols = []
         for sym, df in datasets.items():
             rows = df[df["date"] == date]
@@ -112,7 +109,7 @@ def backtest_global():
                 positions[sym] += shares
                 cash -= shares * price
 
-        # 3) Calcule la valeur totale du portefeuille à cette date
+        # Valeur totale
         total_value = cash
         for sym in datasets.keys():
             price = last_price[sym]
@@ -135,9 +132,25 @@ def backtest_global():
     print(f"Valeur finale : {final_value:.2f} €")
     print(f"Performance : {perf_pct:.2f} %")
 
+    # Sauvegarde CSV
     out_path = os.path.join(DATA_FOLDER, "backtest_global.csv")
     result_df.to_csv(out_path, index=False)
     print(f"\nDétails sauvegardés dans : {out_path}")
+
+    # === GRAPHIQUE AUTOMATIQUE ===
+    plt.figure(figsize=(10, 5))
+    plt.plot(result_df["date"], result_df["total_value"], label="Portefeuille")
+    plt.axhline(CAPITAL_INITIAL, linestyle="--", label="Capital initial")
+    plt.xlabel("Date")
+    plt.ylabel("Valeur du portefeuille (€)")
+    plt.title("Évolution du portefeuille global (25 000 €)")
+    plt.legend()
+    plt.tight_layout()
+
+    img_path = os.path.join(DATA_FOLDER, "backtest_global.png")
+    plt.savefig(img_path)
+    plt.close()
+    print(f"Graphique sauvegardé dans : {img_path}")
 
     return result_df
 
