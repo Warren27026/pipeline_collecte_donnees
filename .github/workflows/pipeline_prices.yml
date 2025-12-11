@@ -29,6 +29,10 @@ jobs:
         run: |
           python donne_collectes_nettoye.py
 
+      - name: Run global backtest (25k€ sur 5 entreprises)
+        run: |
+          python backtest_global.py
+
       - name: Commit and push changes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
