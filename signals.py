@@ -5,91 +5,144 @@ from datetime import datetime
 
 DATA_FOLDER = "data"
 
-def add_signals(df: pd.DataFrame) -> pd.DataFrame:
+def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Ajoute une colonne 'signal' (BUY / SELL / HOLD) à partir des indicateurs :
-    - Close
-    - Bollinger_Lower
-    - Bollinger_Upper
-    - RSI_14
-    - MACD_Diff
+    Ajoute les indicateurs techniques nécessaires :
+    - rsi
+    - lower_bb, upper_bb
+    - macd, signal_line
     """
+    import ta  # on importe ici pour éviter les erreurs si non utilisé ailleurs
+
     df = df.copy()
-    df["signal"] = "HOLD"  # par défaut
 
-    # Condition d'achat (BUY)
-    buy_cond = (
-        (df["Close"] < df["Bollinger_Lower"]) &
-        (df["RSI_14"] < 30) &
-        (df["MACD_Diff"] > 0)
-    )
+    # S'assurer que les données sont triées par date si la colonne existe
+    if "date" in df.columns:
+        df["date"] = pd.to_datetime(df["date"])
+        df = df.sort_values("date")
 
-    # Condition de vente (SELL)
-    sell_cond = (
-        (df["Close"] > df["Bollinger_Upper"]) &
-        (df["RSI_14"] > 70) &
-        (df["MACD_Diff"] < 0)
-    )
+    close = df["Close"]
 
-    df.loc[buy_cond, "signal"] = "BUY"
-    df.loc[sell_cond, "signal"] = "SELL"
+    # Bandes de Bollinger (20 jours)
+    bb = ta.volatility.BollingerBands(close, window=20, window_dev=2)
+    df["upper_bb"] = bb.bollinger_hband()
+    df["lower_bb"] = bb.bollinger_lband()
 
+    # RSI (14 jours)
+    df["rsi"] = ta.momentum.RSIIndicator(close, window=14).rsi()
+
+    # MACD
+    macd_ind = ta.trend.MACD(close)
+    df["macd"] = macd_ind.macd()
+    df["signal_line"] = macd_ind.macd_signal()
+
+    # On supprime les premières lignes qui ont des NaN (début des indicateurs)
+    df = df.dropna().reset_index(drop=True)
     return df
 
 
-def get_last_signal_for_symbol(symbol: str):
+def generate_signals():
     """
-    Lis data/{symbol}_features.csv,
-    calcule les signaux, et renvoie le signal du DERNIER jour.
+    Lit ALL_YFINANCE.csv, calcule les indicateurs, génère un signal par symbol,
+    sauvegarde latest_signals.csv + signals_history.csv et affiche un tableau.
     """
-    path = os.path.join(DATA_FOLDER, f"{symbol}_features.csv")
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"Fichier introuvable : {path}")
+    all_path = os.path.join(DATA_FOLDER, "ALL_YFINANCE.csv")
+    if not os.path.exists(all_path):
+        raise FileNotFoundError(f"Fichier introuvable : {all_path}")
 
-    df = pd.read_csv(path)
+    all_df = pd.read_csv(all_path)
+    signals = []
 
-    # Ajout des signaux
-    df = add_signals(df)
+    # On garantit le bon format de la date
+    if "date" in all_df.columns:
+        all_df["date"] = pd.to_datetime(all_df["date"])
 
-    # Dernière ligne (jour le plus récent)
-    last = df.iloc[-1]
+    # Boucle sur chaque symbole
+    for symbol in all_df["symbol"].unique():
+        df = all_df[all_df["symbol"] == symbol].copy()
 
-    date = last.get("date", "N/A")
-    close = float(last["Close"])
-    signal = last["signal"]
+        # On demande un minimum d'historique pour que les indicateurs soient stables
+        if len(df) < 60:
+            continue
 
-    return {
-        "symbol": symbol,
-        "date": date,
-        "close": close,
-        "signal": signal,
-    }
+        # Ajout des indicateurs techniques
+        df = add_indicators(df)
+
+        if len(df) < 2:
+            continue
+
+        # Dernier jour et jour précédent
+        last = df.iloc[-1]
+        prev = df.iloc[-2]
+
+        # ---- Règles BUY / SELL (au moins 2 conditions sur 3) ----
+
+        # Conditions BUY
+        cond_rsi_buy = last["rsi"] < 30
+        cond_bb_buy = last["Close"] < last["lower_bb"]
+        cond_macd_buy = (last["macd"] > last["signal_line"]) and (prev["macd"] <= prev["signal_line"])
+        buy_count = sum([cond_rsi_buy, cond_bb_buy, cond_macd_buy])
+
+        # Conditions SELL
+        cond_rsi_sell = last["rsi"] > 70
+        cond_bb_sell = last["Close"] > last["upper_bb"]
+        cond_macd_sell = (last["macd"] < last["signal_line"]) and (prev["macd"] >= prev["signal_line"])
+        sell_count = sum([cond_rsi_sell, cond_bb_sell, cond_macd_sell])
+
+        if buy_count >= 2:
+            signal = "BUY"
+        elif sell_count >= 2:
+            signal = "SELL"
+        else:
+            signal = "HOLD"
+
+        # Position par rapport aux bandes
+        if last["Close"] < last["lower_bb"]:
+            bb_position = "BELOW"
+        elif last["Close"] > last["upper_bb"]:
+            bb_position = "ABOVE"
+        else:
+            bb_position = "INSIDE"
+
+        # Histogramme MACD (différence entre MACD et signal_line)
+        macd_hist = last["macd"] - last["signal_line"]
+
+        signals.append({
+            "symbol": symbol,
+            "date": last["date"].strftime("%Y-%m-%d") if isinstance(last["date"], pd.Timestamp) else last["date"],
+            "close": round(last["Close"], 2),
+            "rsi": round(last["rsi"], 2),
+            "bb_position": bb_position,
+            "macd_hist": round(macd_hist, 4),
+            "recommendation": signal
+        })
+
+    # DataFrame des signaux du jour
+    signals_df = pd.DataFrame(signals)
+
+    # Sauvegarde des signaux du jour
+    latest_path = os.path.join(DATA_FOLDER, "latest_signals.csv")
+    signals_df.to_csv(latest_path, index=False)
+
+    # Sauvegarde dans l'historique
+    history_path = os.path.join(DATA_FOLDER, "signals_history.csv")
+    if os.path.exists(history_path):
+        history_df = pd.read_csv(history_path)
+        signals_df = pd.concat([history_df, signals_df], ignore_index=True)
+
+    signals_df.to_csv(history_path, index=False)
+
+    # Affichage
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    print(f"\n=== SIGNAUX DU JOUR ({today_str}) ===")
+    try:
+        print(signals_df.to_markdown(index=False))
+    except Exception:
+        print(signals_df)
 
 
 def main():
-    symbols = ["AAPL", "TSLA", "MSFT", "BTC-USD", "GOOGL"]
-
-    today = datetime.now().strftime("%Y-%m-%d")
-    output_path = os.path.join(DATA_FOLDER, f"signals_{today}.csv")
-
-    results = []
-
-    print("=== SIGNAUX DU JOUR ===")
-    for s in symbols:
-        try:
-            info = get_last_signal_for_symbol(s)
-            results.append(info)
-
-            print(f"{info['date']} | {info['symbol']} | Close={info['close']:.2f} | Signal={info['signal']}")
-
-        except Exception as e:
-            print(f"[ERREUR] {s} : {e}")
-
-    # Sauvegarde CSV
-    df_results = pd.DataFrame(results)
-    df_results.to_csv(output_path, index=False)
-
-    print(f"\nFichier sauvegardé : {output_path}")
+    generate_signals()
 
 
 if __name__ == "__main__":
