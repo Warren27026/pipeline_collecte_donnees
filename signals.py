@@ -46,7 +46,7 @@ def generate_signals():
     Lit ALL_YFINANCE.csv, calcule les indicateurs, génère un signal par symbol,
     sauvegarde latest_signals.csv + signals_history.csv et affiche un tableau.
     """
-    all_path = os.path.join(DATA_FOLDER, "ALL_YFINANCE.csv")
+    all_path = os.path.join(DATA_FOLDER, "ALL_YFINANCE_features.csv")
     if not os.path.exists(all_path):
         raise FileNotFoundError(f"Fichier introuvable : {all_path}")
 
