@@ -131,16 +131,14 @@ def collect_tiingo():
     print("Tiingo OK")
 
 # ====================== MAIN ======================
-
 def main():
     print("DÉBUT PIPELINE -", datetime.now().strftime("%Y-%m-%d %H:%M"))
     collect_yfinance()
     collect_tiingo()
     print("Données collectées et indicateurs calculés.")
-
     print("\nCalcul des signaux BUY/SELL...")
     signals_main()
-    print("TERMINÉ – PRIX + SIGNAUX GÉNÉRÉS")
 
+    print("PIPELINE TERMINÉ.")
 if __name__ == "__main__":
     main()
