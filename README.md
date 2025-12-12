@@ -1,253 +1,120 @@
-# pipeline_collecte_donnees
-Pipeline pour mon projet de prédiction de valeur boursière
+## 📊 Explication des métriques de performance et de risque
 
-
-#  Trading Analytics Pipeline — Collecte, Nettoyage & Analyse des Données Boursières
-
-Ce projet met en place un pipeline automatisé qui :
-
-1. **Collecte** quotidiennement les données financières (yFinance + Tiingo)
-2. **Nettoie** et normalise les données
-3. **Génère des indicateurs techniques clés** (Bollinger, RSI, MACD, returns…)
-4. **Construit une base exploitable pour un modèle AI** (prédiction de prix & signaux BUY/SELL)
-5. **Sauvegarde** automatiquement les fichiers CSV dans le dossier `data/`
-
-Le pipeline est conçu pour s’exécuter automatiquement via **GitHub Actions**, chaque jour à 20h.
+Afin d’évaluer le comportement du portefeuille simulé, plusieurs métriques financières sont calculées à partir de l’évolution de la valeur totale du portefeuille (`total_value`).  
+Ces métriques permettent d’analyser à la fois **la performance** et **le risque** de la stratégie.
 
 ---
 
-# Objectifs du Projet
+### 💰 Valeur finale du portefeuille (`final_value`)
 
-*  Automatiser la collecte des prix journaliers d’actions (AAPL, MSFT, TSLA…)
-*  Nettoyer et structurer les données pour une utilisation en IA
-*  Générer des indicateurs techniques utilisés en finance quantitative
-*  Préparer le terrain pour un modèle prédictif/algorithmique
-*  Créer une base pour des signaux d’achat/vente exploitables
+**Définition :**  
+La valeur finale correspond à la **valeur totale du portefeuille à la dernière date du backtest**.
 
----
+Elle inclut :
+- l’argent liquide disponible (cash)
+- la valeur des actions détenues (positions × prix)
 
-#  Pipeline Complet
-
-## 1. Collecte Automatisée
-
-Le pipeline récupère chaque jour 1 an d’historique via :
-
-* **yFinance** : AAPL, TSLA, MSFT, BTC-USD, GOOGL
-* **Tiingo** : AAPL, TSLA, MSFT, GOOGL
-
-Ces données sont stockées dans :
-
-```
-data/
-data/tiingo/
-```
+**Interprétation :**
+- Si la valeur finale est supérieure au capital initial, la stratégie est gagnante
+- Sinon, la stratégie est perdante
 
 ---
 
-## 2. Nettoyage des Données
+### 📈 Performance (%) (`performance_pct`)
 
-Le script applique :
+**Définition :**  
+La performance mesure le **gain ou la perte en pourcentage** par rapport au capital initial.
 
-✔ Normalisation des dates
-✔ Suppression des doublons
-✔ Suppression/Interpolation des valeurs manquantes
-✔ Correction des outliers (méthode IQR 3×)
-✔ Filtrage des volumes négatifs
-✔ Tri chronologique
+**Idée simple :**  
+> “Combien d’argent ai-je gagné ou perdu au total ?”
 
-Les données propres sont enregistrées sous forme :
+**Interprétation :**
+- Performance positive → gain
+- Performance négative → perte
 
-```
-AAPL.csv
-MSFT.csv
-...
-```
+Cette métrique permet de comparer facilement plusieurs stratégies.
 
 ---
 
-## 3. Génération des Indicateurs Techniques
+### 📉 Drawdown maximal (`max_drawdown_pct`)
 
-Chaque actif reçoit un fichier enrichi :
+**Définition :**  
+Le drawdown maximal représente la **plus forte baisse du portefeuille** entre un point haut et le point bas qui suit.
 
-```
-AAPL_features.csv
-```
+**Idée simple :**  
+> “Jusqu’où le portefeuille est-il descendu avant de remonter ?”
 
-Avec :
+**Pourquoi c’est important :**
+- Une stratégie peut être rentable, mais subir de fortes pertes temporaires
+- Le drawdown mesure le **risque réel** et la difficulté psychologique à suivre la stratégie
 
-###  Bandes de Bollinger (Volatilité)
-
-* `Bollinger_Middle`
-* `Bollinger_Upper`
-* `Bollinger_Lower`
-* `Bollinger_%B`
-* `Bollinger_Width`
-
-###  Momentum – RSI (14)
-
-* `RSI_14`
-
-###  Tendance – MACD
-
-* `MACD`
-* `MACD_Signal`
-* `MACD_Diff`
-
-###  Performance
-
-* `Return`
-* `Return_next`
-* `Close_next`
+**Interprétation :**
+- Drawdown faible → stratégie plus stable
+- Drawdown élevé → stratégie plus risquée
 
 ---
 
-#  Description des Variables Calculées
+### 📊 Volatilité journalière (`volatility_pct`)
 
-## 🟦 Prix bruts
+**Définition :**  
+La volatilité mesure à quel point la valeur du portefeuille **varie d’un jour à l’autre**.
 
-| Variable | Description       |
-| -------- | ----------------- |
-| Open     | Prix d’ouverture  |
-| High     | Plus haut du jour |
-| Low      | Plus bas du jour  |
-| Close    | Prix de clôture   |
-| Volume   | Activité du jour  |
+**Idée simple :**  
+> “Est-ce que la courbe est régulière ou très instable ?”
 
-## 🟧 Bandes de Bollinger
+**Pourquoi c’est important :**
+- Une stratégie très volatile est plus risquée
+- Elle est aussi plus difficile à suivre sur le long terme
 
-| Variable         | Signification           |
-| ---------------- | ----------------------- |
-| Bollinger_Middle | Moyenne mobile 20 jours |
-| Bollinger_Upper  | SMA20 + 2σ              |
-| Bollinger_Lower  | SMA20 – 2σ              |
-| Bollinger_%B     | Position dans le canal  |
-| Bollinger_Width  | Volatilité du marché    |
-
-## 🟩 RSI – Momentum
-
-| Variable | Description       |
-| -------- | ----------------- |
-| RSI_14   | Surachat/survente |
-
-## 🟨 MACD – Tendance
-
-| Variable    | Description     |
-| ----------- | --------------- |
-| MACD        | EMA12 – EMA26   |
-| MACD_Signal | EMA9 du MACD    |
-| MACD_Diff   | Signal BUY/SELL |
-
-## 🟥 Returns
-
-| Variable    | Description                   |
-| ----------- | ----------------------------- |
-| Return      | Rendement du jour             |
-| Return_next | Rendement du lendemain        |
-| Close_next  | Prix du lendemain (target ML) |
+**Interprétation :**
+- Volatilité faible → portefeuille stable
+- Volatilité élevée → portefeuille instable
 
 ---
 
-#  Modèle de Base BUY / SELL
+### ⚖️ Sharpe Ratio (`sharpe_ratio`)
 
-Le pipeline permet de créer facilement une première stratégie :
+**Définition :**  
+Le Sharpe ratio met en relation :
+- la performance moyenne
+- le risque pris (volatilité)
 
-###  **Signal BUY** si :
+**Idée simple :**  
+> “Est-ce que le gain obtenu vaut le risque pris ?”
 
-* `Close < Bollinger_Lower`
-* `RSI_14 < 30`
-* `MACD_Diff > 0`
+**Interprétation générale :**
+- Sharpe < 0 → mauvaise stratégie
+- Sharpe ≈ 0.5 → faible
+- Sharpe ≈ 1 → correct
+- Sharpe ≥ 2 → très bon
 
-###  **Signal SELL** si :
-
-* `Close > Bollinger_Upper`
-* `RSI_14 > 70`
-* `MACD_Diff < 0`
-
-Ce modèle simple sert de baseline pour les futurs modèles IA (RandomForest, LSTM…).
-
----
-
-#  Installation
-
-### 1. Cloner le repo
-
-```bash
-git clone https://github.com/Warren27026/pipeline_collecte_donnees
-cd pipeline_collecte_donnees
-```
-
-### 2. Installer les dépendances
-
-```bash
-pip install -r requirements.txt
-```
-
-Assurez-vous d’avoir :
-
-```
-yfinance
-tiingo
-pandas
-numpy
-ta
-```
-
-### 3. Ajouter vos clés API
-
-Dans les **GitHub Secrets** :
-
-* `TIINGO_API_KEY`
-* `PUSH_TOKEN` (Personal Access Token pour push auto)
+Un Sharpe élevé indique une stratégie plus efficace et mieux équilibrée.
 
 ---
 
-# ⚡ Exécution Manuelle
+### 📈 Courbe d’évolution du portefeuille
 
-```bash
-python pipeline.py
-```
+**Définition :**  
+La courbe représente l’évolution de la valeur totale du portefeuille dans le temps.
 
-Cela génère :
+**Ce qu’elle permet d’observer :**
+- la tendance globale (hausse ou baisse)
+- les périodes de pertes importantes
+- la stabilité ou l’instabilité de la stratégie
 
-```
-data/AAPL.csv
-data/AAPL_features.csv
-data/ALL_YFINANCE_features.csv
-...
-```
+C’est la visualisation la plus importante du backtest.
 
 ---
 
-# GitHub Actions
+## 🧠 Pourquoi ces métriques sont adaptées à un modèle dummy
 
-Le pipeline est exécuté automatiquement chaque soir à **20h** pour mettre les prix à jour.
+Le modèle utilisé étant un **modèle dummy basé sur des règles fixes**,  
+il n’est pas évalué sur des métriques de prédiction (accuracy, précision, etc.),  
+mais sur son **impact réel sur un portefeuille financier**.
 
----
+Ces métriques permettent de :
+- mesurer la rentabilité
+- évaluer le risque
+- comparer la stratégie à une approche passive (Buy & Hold)
 
-#  Architecture du Projet
-
-```
-root/
-├── donne_collectes_nettoye.py               # Script principal
-├── data/
-│   ├── AAPL.csv
-│   ├── AAPL_features.csv
-│   ├── ALL_YFINANCE.csv
-│   └── ...
-│
-└── data/tiingo/
-    ├── AAPL_features.csv
-    └── ALL_TIINGO_features.csv
-```
-
----
-
-# Contact & Contributions
-
-Les contributions sont les bienvenues !
-N'hésitez pas à ouvrir une **issue** ou un **pull request**.
-
----
-
-
-
+Elles constituent une base de référence avant l’introduction de modèles plus avancés.
