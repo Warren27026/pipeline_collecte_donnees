@@ -2,7 +2,7 @@
 
 import os
 import pandas as pd
-import matplotlib.pyplot as plt  # <-- ajout
+import matplotlib.pyplot as plt
 
 DATA_FOLDER = "data"
 
@@ -67,7 +67,7 @@ def backtest_global():
     portfolio_rows = []
 
     for date in all_dates:
-        # SELL d'abord
+        # 1) SELL d'abord
         for sym, df in datasets.items():
             rows = df[df["date"] == date]
             if not rows.empty:
@@ -83,7 +83,7 @@ def backtest_global():
                 cash += positions[sym] * price
                 positions[sym] = 0.0
 
-        # BUY ensuite
+        # 2) BUY ensuite
         buy_symbols = []
         for sym, df in datasets.items():
             rows = df[df["date"] == date]
@@ -109,7 +109,7 @@ def backtest_global():
                 positions[sym] += shares
                 cash -= shares * price
 
-        # Valeur totale
+        # 3) Valeur totale du portefeuille
         total_value = cash
         for sym in datasets.keys():
             price = last_price[sym]
@@ -123,21 +123,58 @@ def backtest_global():
             **{f"pos_{sym}": positions[sym] for sym in datasets.keys()}
         })
 
-    result_df = pd.DataFrame(portfolio_rows)
+    result_df = pd.DataFrame(portfolio_rows).sort_values("date").reset_index(drop=True)
+
     final_value = result_df.iloc[-1]["total_value"]
     perf_pct = (final_value / CAPITAL_INITIAL - 1) * 100
+
+    # =========================
+    # MÉTRIQUES DE RISQUE
+    # =========================
+    result_df["daily_return"] = result_df["total_value"].pct_change()
+
+    # Drawdown
+    result_df["peak"] = result_df["total_value"].cummax()
+    result_df["drawdown"] = (result_df["total_value"] - result_df["peak"]) / result_df["peak"]
+    max_drawdown = result_df["drawdown"].min()  # valeur négative
+
+    # Volatilité
+    volatility = result_df["daily_return"].std()
+
+    # Sharpe (taux sans risque = 0)
+    mean_return = result_df["daily_return"].mean()
+    sharpe_ratio = (mean_return / volatility) if (volatility and volatility != 0) else 0.0
 
     print("\n=== RÉSULTATS BACKTEST GLOBAL ===")
     print(f"Capital initial : {CAPITAL_INITIAL:.2f} €")
     print(f"Valeur finale : {final_value:.2f} €")
     print(f"Performance : {perf_pct:.2f} %")
 
-    # Sauvegarde CSV
+    print("\n=== MÉTRIQUES DE RISQUE ===")
+    print(f"Drawdown maximal : {max_drawdown * 100:.2f} %")
+    print(f"Volatilité journalière : {volatility * 100:.2f} %")
+    print(f"Sharpe ratio : {sharpe_ratio:.2f}")
+
+    # Sauvegarde CSV backtest
     out_path = os.path.join(DATA_FOLDER, "backtest_global.csv")
     result_df.to_csv(out_path, index=False)
     print(f"\nDétails sauvegardés dans : {out_path}")
 
-    # === GRAPHIQUE AUTOMATIQUE ===
+    # Sauvegarde CSV des métriques
+    metrics_path = os.path.join(DATA_FOLDER, "backtest_metrics.csv")
+    pd.DataFrame([{
+        "capital_initial": CAPITAL_INITIAL,
+        "final_value": final_value,
+        "performance_pct": perf_pct,
+        "max_drawdown_pct": max_drawdown * 100,
+        "volatility_pct": volatility * 100,
+        "sharpe_ratio": sharpe_ratio
+    }]).to_csv(metrics_path, index=False)
+    print(f"Métriques sauvegardées dans : {metrics_path}")
+
+    # =========================
+    # GRAPHIQUE
+    # =========================
     plt.figure(figsize=(10, 5))
     plt.plot(result_df["date"], result_df["total_value"], label="Portefeuille")
     plt.axhline(CAPITAL_INITIAL, linestyle="--", label="Capital initial")
