@@ -37,7 +37,7 @@ jobs:
           python evaluate_baselines.py
       - name: Run entrainement RandomForest
         run: |
-          python train_model.py
+          python train_optimized.py
       - name: Commit and push changes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
