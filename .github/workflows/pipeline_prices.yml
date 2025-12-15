@@ -21,7 +21,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install yfinance tiingo pandas numpy ta matplotlib
+          pip install yfinance tiingo pandas numpy ta matplotlib scikit-learn
 
       - name: Run pipeline script (collecte + nettoyage + signaux)
         env:
@@ -32,7 +32,9 @@ jobs:
       - name: Run global backtest (25k€ sur 5 entreprises)
         run: |
           python backtest_global.py
-
+      - name: Run evaluate baselines (dummy)
+        run: |
+          python evaluate_baselines.py
       - name: Commit and push changes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
