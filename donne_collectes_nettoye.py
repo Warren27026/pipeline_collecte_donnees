@@ -124,7 +124,7 @@ def collect_yfinance():
     print("Collecte yfinance...")
 
     for s in symbols:
-        df = yf.Ticker(s).history(period="1y").reset_index()
+        df = yf.Ticker(s).history(period="5y").reset_index()
         df['symbol'] = s
         df['date'] = df['Date']
         df = df[['date', 'Open', 'High', 'Low', 'Close', 'Volume', 'symbol']]
@@ -148,7 +148,7 @@ def collect_tiingo():
     all_data = []
     print("Collecte Tiingo...")
 
-    start_date = datetime.now().replace(year=datetime.now().year - 1)
+    start_date = datetime.now().replace(year=datetime.now().year - 5)
 
     for s in symbols:
         df = client.get_dataframe(s, frequency='daily', startDate=start_date)
