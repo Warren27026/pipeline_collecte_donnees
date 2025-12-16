@@ -35,9 +35,9 @@ jobs:
       - name: Run evaluate baselines (dummy)
         run: |
           python evaluate_baselines.py
-      - name: Run entrainement LSTM
+      - name: Run entrainement XGboost
         run: |
-          python train_deep_learning.py
+          python train_price_predictor.py
       - name: Commit and push changes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
