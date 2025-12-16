@@ -35,7 +35,10 @@ jobs:
       - name: Run evaluate baselines (dummy)
         run: |
           python evaluate_baselines.py
-      - name: Run entrainement XGboost
+      - name:  Analyse Hybride (Achat/Vente)
+        run: |
+         python predict_final_hybrid.py
+      - name: Prédiction des Prix (Objectifs)
         run: |
           python train_price_predictor.py
       - name: Commit and push changes
