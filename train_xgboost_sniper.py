@@ -5,14 +5,10 @@ import ta
 import xgboost as xgb
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
-from sklearn.model_selection import TimeSeriesSplit
 
 # --- CONFIGURATION ---
 DATA_FOLDER = "data"
 FILE_PATH = os.path.join(DATA_FOLDER, "ALL_YFINANCE_features.csv")
-
-# On reprend ta "Dream Team"
-ELITE_SYMBOLS = ["ROKU", "MSFT", "RIVN", "PLTR", "TSLA", "NVDA"]
 
 FEATURES = [
     "RSI_14", "MACD", "MACD_Signal", "MACD_Diff", 
@@ -62,18 +58,25 @@ def add_advanced_features(df):
     return df
 
 def train_xgboost_sniper():
-    print("\n🥊 DUEL : RANDOM FOREST vs XGBOOST (Mode Sniper > 60%)...")
+    print("\n DUEL COMPLET : RANDOM FOREST vs XGBOOST (Mode Sniper > 60%)...")
     
     if not os.path.exists(FILE_PATH):
-        print(f"❌ Fichier introuvable : {FILE_PATH}")
+        print(f" Fichier introuvable : {FILE_PATH}")
         return
     
     df_all = pd.read_csv(FILE_PATH)
     
-    print(f"{'SYMBOLE':<8} | {'RF (Précision)':<15} | {'XGB (Précision)':<15} | {'VAINQUEUR'}")
-    print("-" * 70)
+    # ON PREND TOUS LES SYMBOLES DISPONIBLES
+    symbols = df_all["symbol"].unique()
+    print(f"Analyse en cours sur {len(symbols)} actifs...")
 
-    for sym in ELITE_SYMBOLS:
+    print(f"\n{'SYMBOLE':<8} | {'RF (Précision)':<15} | {'XGB (Précision)':<15} | {'VAINQUEUR'}")
+    print("-" * 75)
+    
+    rf_wins = 0
+    xgb_wins = 0
+
+    for sym in symbols:
         df = df_all[df_all["symbol"] == sym].copy()
         if "date" in df.columns:
             df["date"] = pd.to_datetime(df["date"])
@@ -95,35 +98,28 @@ def train_xgboost_sniper():
         X_train, X_test = X.iloc[:split_idx], X.iloc[split_idx:]
         y_train, y_test = y.iloc[:split_idx], y.iloc[split_idx:]
         
-        # --- 1. RANDOM FOREST (Ton Champion) ---
+        # --- 1. RANDOM FOREST ---
         rf = RandomForestClassifier(n_estimators=300, min_samples_leaf=5, max_depth=15, random_state=42, n_jobs=-1)
         rf.fit(X_train, y_train)
         probs_rf = rf.predict_proba(X_test)[:, 1]
         
-        # Score Sniper RF (Seuil 0.60)
+        # Score Sniper RF
         mask_rf = probs_rf > 0.60
         score_rf = 0.0
-        if np.sum(mask_rf) > 5: # Au moins 5 trades pour compter
+        if np.sum(mask_rf) > 5:
             preds = (probs_rf[mask_rf] > 0.5).astype(int)
             real = y_test[mask_rf]
             score_rf = accuracy_score(real, preds)
             
-        # --- 2. XGBOOST (Le Challenger) ---
-        # XGBoost a besoin d'un tuning léger pour ne pas overfit
+        # --- 2. XGBOOST ---
         model_xgb = xgb.XGBClassifier(
-            n_estimators=200,
-            learning_rate=0.05, # Apprentissage lent = plus précis
-            max_depth=5,        # Pas trop profond pour généraliser
-            subsample=0.8,      # Utilise seulement 80% des données par arbre (évite le par coeur)
-            colsample_bytree=0.8,
-            random_state=42,
-            n_jobs=-1,
-            eval_metric="logloss"
+            n_estimators=200, learning_rate=0.05, max_depth=5, 
+            subsample=0.8, colsample_bytree=0.8, random_state=42, n_jobs=-1, eval_metric="logloss"
         )
         model_xgb.fit(X_train, y_train)
         probs_xgb = model_xgb.predict_proba(X_test)[:, 1]
         
-        # Score Sniper XGB (Seuil 0.60)
+        # Score Sniper XGB
         mask_xgb = probs_xgb > 0.60
         score_xgb = 0.0
         if np.sum(mask_xgb) > 5:
@@ -132,16 +128,22 @@ def train_xgboost_sniper():
             score_xgb = accuracy_score(real, preds)
         
         # Résultat
-        winner = "ÉGALITÉ"
-        if score_xgb > score_rf: winner = "🚀 XGBOOST"
-        elif score_rf > score_xgb: winner = "🌳 RANDOM FOREST"
+        winner = "-"
+        if score_xgb > score_rf: 
+            winner = "🚀 XGB"
+            xgb_wins += 1
+        elif score_rf > score_xgb: 
+            winner = " RF"
+            rf_wins += 1
         
-        # Affichage (si pas assez de trades, on met N/A)
+        # Affichage
         str_rf = f"{score_rf*100:.1f}%" if score_rf > 0 else "N/A"
         str_xgb = f"{score_xgb*100:.1f}%" if score_xgb > 0 else "N/A"
         
         print(f"{sym:<8} | {str_rf:<15} | {str_xgb:<15} | {winner}")
 
-if __name__ == "__main__":
-    train_xgboost_sniper()
+    print("-" * 75)
+    print(f"BILAN FINAL : RF {rf_wins} victoires vs XGB {xgb_wins} victoires")
 
+if __name__ == "__main__":
+    train_xgboost_sniper(
