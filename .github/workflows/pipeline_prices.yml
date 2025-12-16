@@ -37,7 +37,7 @@ jobs:
           python evaluate_baselines.py
       - name: Run entrainement Xgboost
         run: |
-          python train_xgboost_sniper.py
+          python predict_final_hybrid.py
       - name: Commit and push changes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
