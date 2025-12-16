@@ -21,7 +21,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install yfinance tiingo pandas numpy ta matplotlib scikit-learn
+          pip install yfinance tiingo pandas numpy ta matplotlib xgboost scikit-learn
 
       - name: Run pipeline script (collecte + nettoyage + signaux)
         env:
@@ -35,9 +35,9 @@ jobs:
       - name: Run evaluate baselines (dummy)
         run: |
           python evaluate_baselines.py
-      - name: Run entrainement Voting
+      - name: Run entrainement Xgboost
         run: |
-          python train_ensemble.py
+          python train_xgboost_sniper.py
       - name: Commit and push changes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
