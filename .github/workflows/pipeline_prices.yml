@@ -3,7 +3,7 @@ name: Pipeline prix bourse
 on:
   schedule:
     # Tous les jours à 20:00 UTC (~21h/22h Europe/Paris selon l’heure d’été)
-    - cron: "30 20 * * *"
+    - cron: "0 20 * * *"
   workflow_dispatch: {}
 
 jobs:
@@ -37,7 +37,7 @@ jobs:
           python evaluate_baselines.py
       - name: Run entrainement RandomForest
         run: |
-          python train_model.py
+          python train_improved.py
       - name: Commit and push changes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
