@@ -146,4 +146,4 @@ def train_xgboost_sniper():
     print(f"BILAN FINAL : RF {rf_wins} victoires vs XGB {xgb_wins} victoires")
 
 if __name__ == "__main__":
-    train_xgboost_sniper(
+    train_xgboost_sniper()
