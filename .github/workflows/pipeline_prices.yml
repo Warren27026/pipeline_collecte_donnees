@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install yfinance tiingo pandas tensorflow numpy ta matplotlib xgboost scikit-learn
+          pip install yfinance tiingo pandas tensorflow numpy ta matplotlib xgboost scikit-learn optuna
 
       # ÉTAPE 1 : Collecte
       - name: Run pipeline script (collecte + nettoyage)
@@ -44,6 +44,9 @@ jobs:
       # ÉTAPE 4 : Fusion
       - name: Génération des Signaux Interface
         run: python signals.py
+        
+      - name: Optimisation du modèle
+        run: python optimize_hyperparameters.py
 
       # ÉTAPE 5 : Sauvegarde
       - name: Commit & Push
@@ -51,5 +54,5 @@ jobs:
           git config --global user.name "GitHub Action Bot"
           git config --global user.email "action@github.com"
           git add data/*.csv data/*.png
-          git commit -m "🚀 Daily AI Update" || exit 0
+          git commit -m " Daily AI Update" || exit 0
           git push
