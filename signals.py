@@ -127,5 +127,9 @@ def generate_signals():
     print("\n=== APERÇU DES SIGNAUX INTELLIGENTS ===")
     print(signals_df[["symbol", "close", "recommendation", "confidence", "target_price"]].head(10))
 
-if __name__ == "__main__":
+# --- LA FONCTION MANQUANTE ---
+def main():
     generate_signals()
+
+if __name__ == "__main__":
+    main()
