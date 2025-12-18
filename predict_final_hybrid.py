@@ -80,9 +80,16 @@ def get_best_model(X_train, y_train, X_test, y_test):
         score_rf = accuracy_score(y_test[mask_rf], (probs_rf[mask_rf] > 0.5).astype(int))
     
     # 2. XGBoost
-    xgb_model = xgb.XGBClassifier(
-        n_estimators=200, learning_rate=0.05, max_depth=5, 
-        subsample=0.8, colsample_bytree=0.8, random_state=42, n_jobs=-1, eval_metric="logloss"
+   xgb_model = xgb.XGBClassifier(
+        n_estimators=159,
+        learning_rate=0.033,
+        max_depth=7,
+        subsample=0.53,
+        colsample_bytree=0.64,
+        gamma=2.08,
+        random_state=42,
+        n_jobs=-1,
+        eval_metric="logloss"
     )
     xgb_model.fit(X_train, y_train)
     
