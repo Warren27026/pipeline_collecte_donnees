@@ -3,7 +3,7 @@ name: Pipeline prix bourse
 on:
   schedule:
     # Tous les jours à 20:00 UTC (~21h/22h Europe/Paris selon l’heure d’été)
-    - cron: "0 20 * * *"
+    - cron: "0 21 * * *"
   workflow_dispatch: {}
 
 jobs:
@@ -29,29 +29,26 @@ jobs:
         run: |
           python donne_collectes_nettoye.py
 
-      - name: Run global backtest (25k€ sur 5 entreprises)
-        run: |
-          python backtest_global.py
-      - name: Run evaluate baselines (dummy)
-        run: |
-          python evaluate_baselines.py
-      - name:  Analyse Hybride (Achat/Vente)
-        run: |
-         python predict_final_hybrid.py
-      - name: Prédiction des Prix (Objectifs)
-        run: |
-          python train_price_predictor.py
-      - name: Commit and push changes
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "warrenshamir10@gmail.com"
+# ÉTAPE 2 : Cerveau Hybride (Génère final_hybrid_predictions.csv)
+      - name:  Analyse Hybride (Sniper)
+        run: python predict_final_hybrid.py
 
-          if [ -n "$(git status --porcelain)" ]; then
-            git add data
-            git commit -m "Auto: update prix + backtest $(date -u +"%Y-%m-%d %H:%M:%S")"
-            git push
+    # ÉTAPE 3 : Cerveau Prix (Génère final_price_predictions.csv)
+      - name:  Prédiction des Prix (Visionnaire)
+        run: python train_price_predictor_v2.py
+
+    # ÉTAPE 4 : Fusion pour l'Interface (Génère latest_signals.csv)
+      - name:  Génération des Signaux Interface
+        run: python signals.py
+
+    # ÉTAPE 5 : Sauvegarde
+      - name:  Commit & Push
+        run: |
+          git config --global user.name "GitHub Action Bot"
+          git config --global user.email "action@github.com"
+          git add data/*.csv data/*.png
+          git commit -m " Daily AI Update" || exit 0
+          git push
           else
             echo "Aucun changement à committer."
           fi
