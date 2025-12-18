@@ -35,7 +35,7 @@ jobs:
 
     # ÉTAPE 3 : Cerveau Prix (Génère final_price_predictions.csv)
       - name:  Prédiction des Prix (Visionnaire)
-        run: python train_price_predictor_v2.py
+        run: python train_price_predictor.py
 
     # ÉTAPE 4 : Fusion pour l'Interface (Génère latest_signals.csv)
       - name:  Génération des Signaux Interface
