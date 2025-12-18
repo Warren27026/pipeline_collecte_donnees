@@ -107,7 +107,7 @@ def get_best_model(X_train, y_train, X_test, y_test):
 
 def predict_final_hybrid():
     print("\n" + "="*80)
-    print(f"🤖 SYSTÈME HYBRIDE : PRÉDICTION OPTIMISÉE (Tous les actifs)")
+    print(f" SYSTÈME HYBRIDE : PRÉDICTION OPTIMISÉE (Tous les actifs)")
     print("="*80)
     
     if not os.path.exists(FILE_PATH):
@@ -202,7 +202,7 @@ def predict_final_hybrid():
     # Sauvegarde
     out_path = os.path.join(DATA_FOLDER, "final_hybrid_predictions.csv")
     pd.DataFrame(predictions).to_csv(out_path, index=False)
-    print("\n✅ Analyse terminée. Résultats exportés.")
+    print("\n Analyse terminée. Résultats exportés.")
 
 if __name__ == "__main__":
     predict_final_hybrid()
