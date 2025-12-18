@@ -2,13 +2,14 @@ name: Pipeline prix bourse
 
 on:
   schedule:
-    # Tous les jours à 20:00 UTC (~21h/22h Europe/Paris selon l’heure d’été)
+    # Tous les jours à 21:00 UTC
     - cron: "0 21 * * *"
   workflow_dispatch: {}
 
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
+    timeout-minutes: 30  # Sécurité pour éviter que ça tourne à l'infini
 
     steps:
       - name: Checkout repo
@@ -18,37 +19,45 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: 'pip' # Ajout du cache pour aller plus vite
 
       - name: Install dependencies
         run: |
+          pip install --upgrade pip
           pip install yfinance tiingo pandas tensorflow numpy ta matplotlib xgboost scikit-learn
 
-      - name: Run pipeline script (collecte + nettoyage + signaux)
+      # ÉTAPE 1 : Collecte (Data seule)
+      - name: Run pipeline script (collecte + nettoyage)
         env:
           TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}
         run: |
           python donne_collectes_nettoye.py
 
-# ÉTAPE 2 : Cerveau Hybride (Génère final_hybrid_predictions.csv)
-      - name:  Analyse Hybride (Sniper)
+      # ÉTAPE 2 : Cerveau Hybride (Génère final_hybrid_predictions.csv)
+      - name: Analyse Hybride (Sniper)
         run: python predict_final_hybrid.py
 
-    # ÉTAPE 3 : Cerveau Prix (Génère final_price_predictions.csv)
-      - name:  Prédiction des Prix (Visionnaire)
+      # ÉTAPE 3 : Cerveau Prix (Génère final_price_predictions.csv)
+      # J'ai remis le nom standard "train_price_predictor.py"
+      # Si ton fichier s'appelle "v2", change le nom ci-dessous !
+      - name: Prédiction des Prix (Visionnaire)
         run: python train_price_predictor.py
 
-    # ÉTAPE 4 : Fusion pour l'Interface (Génère latest_signals.csv)
-      - name:  Génération des Signaux Interface
+      # ÉTAPE 4 : Fusion pour l'Interface (Génère latest_signals.csv)
+      - name: Génération des Signaux Interface
         run: python signals.py
 
-    # ÉTAPE 5 : Sauvegarde
-      - name:  Commit & Push
+      # ÉTAPE 5 : Sauvegarde
+      - name: Commit & Push
         run: |
           git config --global user.name "GitHub Action Bot"
           git config --global user.email "action@github.com"
           git add data/*.csv data/*.png
-          git commit -m " Daily AI Update" || exit 0
+          
+          # La correction est ici :
+          # On essaie de commit. 
+          # S'il y a des changements, ça passe à la ligne suivante (push).
+          # S'il n'y a RIEN, "exit 0" s'active et arrête l'étape proprement (Succès vert).
+          git commit -m  Daily AI Update" || exit 0
+          
           git push
-          else
-            echo "Aucun changement à committer."
-          fi
