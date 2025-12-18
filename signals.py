@@ -1,149 +1,131 @@
-# signals.py
 import os
 import pandas as pd
+import ta
 from datetime import datetime
 
+# --- CONFIGURATION ---
 DATA_FOLDER = "data"
+# Fichiers générés par tes modèles IA
+HYBRID_PATH = os.path.join(DATA_FOLDER, "final_hybrid_predictions.csv")
+PRICE_PATH = os.path.join(DATA_FOLDER, "final_price_predictions.csv")
+FEATURES_PATH = os.path.join(DATA_FOLDER, "ALL_YFINANCE_features.csv")
 
-def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
+def add_display_indicators(df):
     """
-    Ajoute les indicateurs techniques nécessaires :
-    - rsi
-    - lower_bb, upper_bb
-    - macd, signal_line
+    On garde cette fonction pour l'affichage (l'interface aime bien afficher le RSI actuel).
+    Mais ce n'est plus utilisé pour la décision.
     """
-    import ta  # on importe ici pour éviter les erreurs si non utilisé ailleurs
-
     df = df.copy()
-
-    # S'assurer que les données sont triées par date si la colonne existe
-    if "date" in df.columns:
-        df["date"] = pd.to_datetime(df["date"])
-        df = df.sort_values("date")
-
     close = df["Close"]
-
-    # Bandes de Bollinger (20 jours)
+    
+    # RSI & BB pour le contexte visuel
+    df["rsi"] = ta.momentum.RSIIndicator(close, window=14).rsi()
     bb = ta.volatility.BollingerBands(close, window=20, window_dev=2)
     df["upper_bb"] = bb.bollinger_hband()
     df["lower_bb"] = bb.bollinger_lband()
-
-    # RSI (14 jours)
-    df["rsi"] = ta.momentum.RSIIndicator(close, window=14).rsi()
-
-    # MACD
-    macd_ind = ta.trend.MACD(close)
-    df["macd"] = macd_ind.macd()
-    df["signal_line"] = macd_ind.macd_signal()
-
-    # On supprime les premières lignes qui ont des NaN (début des indicateurs)
-    df = df.dropna().reset_index(drop=True)
+    
+    # Position BB
+    df["bb_position"] = "INSIDE"
+    df.loc[close > df["upper_bb"], "bb_position"] = "ABOVE"
+    df.loc[close < df["lower_bb"], "bb_position"] = "BELOW"
+    
+    # MACD Hist
+    macd = ta.trend.MACD(close)
+    df["macd_hist"] = macd.macd_diff()
+    
     return df
 
-
 def generate_signals():
-    """
-    Lit ALL_YFINANCE.csv, calcule les indicateurs, génère un signal par symbol,
-    sauvegarde latest_signals.csv + signals_history.csv et affiche un tableau.
-    """
-    all_path = os.path.join(DATA_FOLDER, "ALL_YFINANCE_features.csv")
-    if not os.path.exists(all_path):
-        raise FileNotFoundError(f"Fichier introuvable : {all_path}")
+    print("🔄 FUSION : Intégration des modèles IA dans le flux Interface...")
 
-    all_df = pd.read_csv(all_path)
-    signals = []
+    # 1. Charger les données de marché (pour le prix actuel et les indicateurs visuels)
+    if not os.path.exists(FEATURES_PATH):
+        print(" Erreur : Données de marché introuvables.")
+        return
+    
+    df_all = pd.read_csv(FEATURES_PATH)
+    if "date" in df_all.columns:
+        df_all["date"] = pd.to_datetime(df_all["date"])
 
-    # On garantit le bon format de la date
-    if "date" in all_df.columns:
-        all_df["date"] = pd.to_datetime(all_df["date"])
+    # 2. Charger les cerveaux (IA Hybride + IA Prix)
+    if os.path.exists(HYBRID_PATH):
+        df_hybrid = pd.read_csv(HYBRID_PATH)
+    else:
+        print(" Pas de prédictions Hybrides trouvées. Lance 'predict_final_hybrid.py'.")
+        df_hybrid = pd.DataFrame(columns=["Symbol", "Signal", "Reliability"])
 
-    # Boucle sur chaque symbole
-    for symbol in all_df["symbol"].unique():
-        df = all_df[all_df["symbol"] == symbol].copy()
+    if os.path.exists(PRICE_PATH):
+        df_price = pd.read_csv(PRICE_PATH)
+    else:
+        print(" Pas de prédictions de Prix trouvées. Lance 'train_price_predictor_v2.py'.")
+        df_price = pd.DataFrame(columns=["Symbol", "Predicted_Price"])
 
-        # On demande un minimum d'historique pour que les indicateurs soient stables
-        if len(df) < 60:
-            continue
+    final_signals = []
 
-        # Ajout des indicateurs techniques
-        df = add_indicators(df)
-
-        if len(df) < 2:
-            continue
-
-        # Dernier jour et jour précédent
-        last = df.iloc[-1]
-        prev = df.iloc[-2]
-
-        # ---- Règles BUY / SELL (au moins 2 conditions sur 3) ----
-
-        # Conditions BUY
-        cond_rsi_buy = last["rsi"] < 30
-        cond_bb_buy = last["Close"] < last["lower_bb"]
-        cond_macd_buy = (last["macd"] > last["signal_line"]) and (prev["macd"] <= prev["signal_line"])
-        buy_count = sum([cond_rsi_buy, cond_bb_buy, cond_macd_buy])
-
-        # Conditions SELL
-        cond_rsi_sell = last["rsi"] > 70
-        cond_bb_sell = last["Close"] > last["upper_bb"]
-        cond_macd_sell = (last["macd"] < last["signal_line"]) and (prev["macd"] >= prev["signal_line"])
-        sell_count = sum([cond_rsi_sell, cond_bb_sell, cond_macd_sell])
-
-        if buy_count >= 2:
-            signal = "BUY"
-        elif sell_count >= 2:
-            signal = "SELL"
-        else:
-            signal = "HOLD"
-
-        # Position par rapport aux bandes
-        if last["Close"] < last["lower_bb"]:
-            bb_position = "BELOW"
-        elif last["Close"] > last["upper_bb"]:
-            bb_position = "ABOVE"
-        else:
-            bb_position = "INSIDE"
-
-        # Histogramme MACD (différence entre MACD et signal_line)
-        macd_hist = last["macd"] - last["signal_line"]
-
-        signals.append({
+    # 3. Boucle de fusion par symbole
+    for symbol in df_all["symbol"].unique():
+        # Données techniques récentes
+        df_sym = df_all[df_all["symbol"] == symbol].copy().sort_values("date")
+        if len(df_sym) < 60: continue
+        
+        # On calcule les indicateurs juste pour l'affichage (Joli pour l'interface)
+        df_sym = add_display_indicators(df_sym)
+        last_row = df_sym.iloc[-1]
+        
+        # --- RÉCUPÉRATION DE L'INTELLIGENCE (IA) ---
+        
+        # A. Signal Achat/Vente (Hybride)
+        ia_signal = "NEUTRE"
+        ia_confidence = 0.0
+        
+        row_hybrid = df_hybrid[df_hybrid["Symbol"] == symbol]
+        if not row_hybrid.empty:
+            raw_signal = row_hybrid.iloc[0]["Signal"] # Ex: "ACHAT "
+            ia_confidence = row_hybrid.iloc[0]["Reliability"]
+            
+            # Traduction pour l'Interface (Standardisation)
+            if "ACHAT" in raw_signal: ia_signal = "BUY"
+            elif "VENTE" in raw_signal: ia_signal = "SELL"
+            elif "IGNORER" in raw_signal: ia_signal = "WAIT" # Trop risqué
+            else: ia_signal = "HOLD"
+        
+        # B. Objectif de Prix (XGBoost)
+        target_price = 0.0
+        row_price = df_price[df_price["Symbol"] == symbol]
+        if not row_price.empty:
+            target_price = row_price.iloc[0]["Predicted_Price"]
+            
+        # 4. Construction de la ligne finale pour l'interface
+        final_signals.append({
             "symbol": symbol,
-            "date": last["date"].strftime("%Y-%m-%d") if isinstance(last["date"], pd.Timestamp) else last["date"],
-            "close": round(last["Close"], 2),
-            "rsi": round(last["rsi"], 2),
-            "bb_position": bb_position,
-            "macd_hist": round(macd_hist, 4),
-            "recommendation": signal
+            "date": last_row["date"].strftime("%Y-%m-%d"),
+            "close": round(last_row["Close"], 2),
+            "rsi": round(last_row["rsi"], 2),
+            "bb_position": last_row["bb_position"],
+            "macd_hist": round(last_row["macd_hist"], 4),
+            "recommendation": ia_signal,   # <--- C'est ici que l'IA prend le pouvoir
+            "confidence": f"{ia_confidence*100:.0f}%", # Nouvelle info pour l'interface
+            "target_price": round(target_price, 2)      # Nouvelle info pour l'interface
         })
 
-    # DataFrame des signaux du jour
-    signals_df = pd.DataFrame(signals)
-
-    # Sauvegarde des signaux du jour
-    latest_path = os.path.join(DATA_FOLDER, "latest_signals.csv")
-    signals_df.to_csv(latest_path, index=False)
-
-    # Sauvegarde dans l'historique
+    # 5. Sauvegarde
+    signals_df = pd.DataFrame(final_signals)
+    
+    # Fichier "Live" pour l'interface
+    live_path = os.path.join(DATA_FOLDER, "latest_signals.csv")
+    signals_df.to_csv(live_path, index=False)
+    print(f" Fichier interface généré : {live_path}")
+    
+    # Historique (Optionnel)
     history_path = os.path.join(DATA_FOLDER, "signals_history.csv")
     if os.path.exists(history_path):
-        history_df = pd.read_csv(history_path)
-        signals_df = pd.concat([history_df, signals_df], ignore_index=True)
+        pd.concat([pd.read_csv(history_path), signals_df], ignore_index=True).to_csv(history_path, index=False)
+    else:
+        signals_df.to_csv(history_path, index=False)
 
-    signals_df.to_csv(history_path, index=False)
-
-    # Affichage
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    print(f"\n=== SIGNAUX DU JOUR ({today_str}) ===")
-    try:
-        print(signals_df.to_markdown(index=False))
-    except Exception:
-        print(signals_df)
-
-
-def main():
-    generate_signals()
-
+    # Petit aperçu
+    print("\n=== APERÇU DES SIGNAUX INTELLIGENTS ===")
+    print(signals_df[["symbol", "close", "recommendation", "confidence", "target_price"]].head(10))
 
 if __name__ == "__main__":
-    main()
+    generate_signals()
