@@ -52,7 +52,7 @@ def train_price_predictor_v2():
     print("\n🔮 DÉMARRAGE V2 : PRÉDICTION VIA RENDEMENTS (XGBOOST)...")
     
     if not os.path.exists(FILE_PATH):
-        print(f"❌ Fichier introuvable : {FILE_PATH}")
+        print(f" Fichier introuvable : {FILE_PATH}")
         return
     
     df_all = pd.read_csv(FILE_PATH)
@@ -134,7 +134,7 @@ def train_price_predictor_v2():
         
         gain = rmse_naive - rmse_ai
         
-        status = "✅ WIN" if gain > 0 else "❌ LOSE"
+        status = " WIN" if gain > 0 else " LOSE"
         if gain > 1.0: status = "🔥 BIG WIN"
         
         print(f"{sym:<8} | {rmse_naive:<12.4f} | {rmse_ai:<12.4f} | {gain:<+10.4f} | {status}")
