@@ -46,7 +46,7 @@ jobs:
         run: python signals.py
         
       - name: Optimisation du modèle
-        run: python optimize_hyperparameters.py
+        run: python optimize_rf.py
 
       # ÉTAPE 5 : Sauvegarde
       - name: Commit & Push
