@@ -66,7 +66,8 @@ def load_symbol_history(symbol: str, history_path: str):
 
 
 def backtest_global():
-    history_path = os.path.join(DATA_FOLDER, "signals_history.csv")
+   # history_path = os.path.join(DATA_FOLDER, "signals_history.csv")
+     # history_path = os.path.join(DATA_FOLDER, "latest_signals.csv")
     if not os.path.exists(history_path):
         raise FileNotFoundError(
             f"Fichier introuvable : {history_path} (lance d'abord donne_collectes_nettoye.py / signals.py)."
