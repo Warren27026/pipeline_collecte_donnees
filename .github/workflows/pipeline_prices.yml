@@ -45,8 +45,8 @@ jobs:
       - name: Génération des Signaux Interface
         run: python signals.py
         
-      - name: Optimisation du modèle
-        run: python optimize_rf.py
+     # - name: Optimisation du modèle
+      #  run: python optimize_rf.py
 
       # ÉTAPE 5 : Sauvegarde
       - name: Commit & Push
