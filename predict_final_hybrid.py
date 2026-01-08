@@ -71,6 +71,38 @@ def get_best_model(X_train, y_train, X_test, y_test):
     # 1. Random Forest
     rf = RandomForestClassifier(n_estimators=367, min_samples_leaf=4, max_depth=12,min_samples_split=9, random_state=42, n_jobs=-1)
     rf.fit(X_train, y_train)
+    """# 1. Random Forest (Optimisé V3 : 55.75% Accuracy / +4.44% Gain vs Hasard)
+    rf = RandomForestClassifier(
+        # Le nombre d'arbres de décision dans la forêt.
+        # 367 arbres permettent de "lisser" les erreurs individuelles et de stabiliser la prédiction.
+        n_estimators=367,
+        
+        # La profondeur maximale de chaque arbre.
+        # 12 est un juste milieu : assez profond pour capter des motifs complexes, 
+        # mais limité pour éviter d'apprendre le bruit par cœur (Overfitting).
+        max_depth=12,
+        
+        # Le nombre minimum d'échantillons requis pour diviser un nœud.
+        # À 9, on force l'arbre à ne prendre des décisions que sur des groupes de données 
+        # significatifs, évitant de créer des branches pour des cas trop isolés.
+        min_samples_split=9,
+        
+        # Le nombre minimum d'échantillons requis pour être une feuille (décision finale).
+        # À 4, on interdit au modèle de conclure sur la base de moins de 4 exemples historiques.
+        # C'est un filtre de sécurité puissant contre la volatilité des marchés.
+        min_samples_leaf=4,
+        
+        # La méthode pour choisir le nombre d'indicateurs à tester à chaque embranchement.
+        # 'log2' force chaque arbre à regarder un sous-ensemble différent d'indicateurs,
+        # ce qui rend la forêt plus diversifiée et robuste.
+        max_features='log2',
+        
+        # Assure que les résultats sont reproductibles (toujours les mêmes à chaque lancement).
+        random_state=42,
+        
+        # Utilise tous les cœurs du processeur pour l'entraînement (Vitesse maximale).
+        n_jobs=-1
+    )"""
     
     # On évalue en mode "Sniper" (sur les trades > 60% de confiance seulement)
     probs_rf = rf.predict_proba(X_test)[:, 1]
