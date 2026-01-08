@@ -69,7 +69,7 @@ def get_best_model(X_train, y_train, X_test, y_test):
     """ Entraîne RF et XGB et retourne le meilleur des deux """
     
     # 1. Random Forest
-    rf = RandomForestClassifier(n_estimators=708, min_samples_leaf=2, max_depth=22,min_samples_split=13, random_state=42, n_jobs=-1)
+    rf = RandomForestClassifier(n_estimators=367, min_samples_leaf=4, max_depth=12,min_samples_split=9, random_state=42, n_jobs=-1)
     rf.fit(X_train, y_train)
     
     # On évalue en mode "Sniper" (sur les trades > 60% de confiance seulement)
