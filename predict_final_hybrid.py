@@ -69,7 +69,7 @@ def get_best_model(X_train, y_train, X_test, y_test):
     """ Entraîne RF et XGB et retourne le meilleur des deux """
     
     # 1. Random Forest
-    rf = RandomForestClassifier(n_estimators=300, min_samples_leaf=5, max_depth=15, random_state=42, n_jobs=-1)
+    rf = RandomForestClassifier(n_estimators=708, min_samples_leaf=2, max_depth=22,min_samples_split=13, random_state=42, n_jobs=-1)
     rf.fit(X_train, y_train)
     
     # On évalue en mode "Sniper" (sur les trades > 60% de confiance seulement)
@@ -161,7 +161,7 @@ def predict_final_hybrid():
         else:
             # 2. Filtre Sniper : Si le modèle est fiable, est-il sûr de lui aujourd'hui ?
             if proba_up >= SNIPER_THRESHOLD:
-                decision = "ACHAT ✅"
+                decision = "ACHAT "
                 comment = f"Signal Fort ({proba_up*100:.1f}%)"
             elif proba_up <= (1.0 - SNIPER_THRESHOLD):
                 decision = "VENTE ❌"
@@ -171,7 +171,7 @@ def predict_final_hybrid():
                 comment = "Incertitude"
 
         # Affichage conditionnel (on met en évidence les opportunités)
-        if decision == "ACHAT ✅":
+        if decision == "ACHAT ":
             prefix = "🔥 "
         elif decision == "IGNORER":
             prefix = "⚠️ "
