@@ -44,6 +44,9 @@ jobs:
       # ÉTAPE 4 : Fusion
       - name: Génération des Signaux Interface
         run: python signals.py
+      # ÉTAPE 5: backtest avec 1000 
+      - name: backtest avec 1000 
+        run: python backtest_global.py
         
      # - name: Optimisation du modèle
       #  run: python optimize_rf.py
