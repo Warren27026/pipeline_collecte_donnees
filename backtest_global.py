@@ -43,7 +43,7 @@ SYMBOLS = [
     "BTC-USD",  # Bitcoin – Crypto-monnaie
 ]
 
-CAPITAL_INITIAL = 25000.0
+CAPITAL_INITIAL = 1000.0
 
 
 def load_symbol_history(symbol: str, history_path: str):
