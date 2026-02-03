@@ -28,6 +28,9 @@ jobs:
           TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}
         run: |
           python donne_collectes_nettoye.py
+      - name: Run global backtest
+        run: |
+          python backtest_global.py
 
       - name: Commit and push changes
         env:
