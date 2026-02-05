@@ -3,6 +3,7 @@
 import os
 import pandas as pd
 import matplotlib.pyplot as plt  # <-- ajout
+import numpy as np
 
 DATA_FOLDER = "data"
 
